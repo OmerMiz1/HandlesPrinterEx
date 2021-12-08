@@ -71,12 +71,6 @@ SmartHandle HandlesManager::Duplicate(const SmartHandle& procHandle, HANDLE hand
 
 	if (status == STATUS_INVALID_HANDLE || handleBuffer == HANDLE_CLOSED_VALUE) {
 		throw_exception(ERROR_DUPLICATE_HANDLE);
-	} else if (status == 0x1) {
-		// In the example i saw, they sleeped incase procHandle was for 
-		// the current process. For now it doesnt affect run time too much
-		// so ill keep it.
-		// TODO clarify
-		Sleep(10);
 	}
 
 	return SmartHandle(handleBuffer);
@@ -91,7 +85,7 @@ T HandlesManager::GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass att
 	ULONG requiredSize = 0;
 
 	// Open handle, duplicate it and allocate memory for target object info.
-	auto procHandle = ProcessManager::Open(handle.ProcessId, PROCESS_DUP_HANDLE);
+	auto procHandle = ProcessManager::Open(handle.ProcessId, PROCESS_ALL_ACCESS);
 	auto dupHandle = HandlesManager::Duplicate(procHandle, (HANDLE) handle.Handle);
 	objectInfo = (T) this->memManager->Alloc(size);
 
