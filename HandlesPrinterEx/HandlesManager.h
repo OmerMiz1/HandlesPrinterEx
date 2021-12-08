@@ -10,19 +10,20 @@
 class HandlesManager
 {
 private:
-	MemoryManager memManager = MemoryManager();
-	std::vector<SYSTEM_HANDLE> handles = std::vector<SYSTEM_HANDLE>();  //TODO Free on after scan? free at the end?
+	MemoryManager* memManager;
+	std::vector<SYSTEM_HANDLE> handles;  //TODO Free on after scan? free at the end?
 
 	void ScanSystemHandles();
-	template<typename T> T GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType); //TODO throws
+	template<typename T> T GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType) throw(...);  //TODO
 
 public:
 	HandlesManager();
+	~HandlesManager();
 
 	std::vector<SYSTEM_HANDLE> GetProcessHandles(DWORD pid);
 	std::string GetHandleName(SYSTEM_HANDLE handle);
 	std::string GetHandleType(SYSTEM_HANDLE handle);
-	ULONG GetPointerCount(SYSTEM_HANDLE handle);
+	ULONG GetHandlePointerCount(SYSTEM_HANDLE handle);
 	ULONG GetHandleCount(SYSTEM_HANDLE handle);
 
 	static SmartHandle DuplicateHandle(const SmartHandle& srcProcHandle, HANDLE srcHandle);

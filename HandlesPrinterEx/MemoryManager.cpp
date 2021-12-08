@@ -1,42 +1,55 @@
 #include "MemoryManager.h"
 #include "utils.h"
 #include "consts.h"
+#include "errors.h"
+#include <iostream>
 
 MemoryManager::~MemoryManager() {
 	for (auto addr : this->virtualAddrs) {
-		this->Free(addr);
+		try {
+			this->Free(addr);
+		} catch (...) {
+			// Do nothing, let the debug message print (from Free)
+			// and try to free the rest of the memory before ending.
+			// Consider enabling a flag to alert that free has failed, 
+			// maybe retry in another function or something.
+		}
 	}
 }
 
 LPVOID MemoryManager::Alloc(SIZE_T bytesToAllocate) {
-	auto resultAddr = VirtualAlloc(NULL, bytesToAllocate, MEM_ALLOC_TYPE, MEM_ALLOC_PROTECTION);
-	
+	auto resultAddr = VirtualAlloc(NULL, bytesToAllocate, MEM_COMMIT, MEM_ALLOC_PROTECTION);
+
 	if (resultAddr == nullptr) {
 		trace_debug(L"VirtualAlloc failed");
-		//TODO? handle error
+		throw MyErrors::ERROR_VIRTUAL_ALLOC;
 	}
 
 	this->virtualAddrs.push_back(resultAddr);
+	this->sizes[resultAddr] = bytesToAllocate; //TODO remove
 	return resultAddr;
 }
 
 LPVOID MemoryManager::Realloc(LPVOID addr, SIZE_T bytesToAllocate) {
-	this->Free(addr);
+	if (addr != nullptr) { //TODO handle error else?
+		this->Free(addr);
+	}
+
 	return this->Alloc(bytesToAllocate);
 }
 
-int MemoryManager::Free(LPVOID addr) {
+void MemoryManager::Free(LPVOID addr) {
 	if (addr == nullptr) {
-		trace_debug(L"address to free cant be null");
-		//TODO? handle error
-		return 0;
-	} else if (!VirtualFree(addr, 0, MEM_RELEASE)) {
+		trace_debug(L"cant free null address");
+		return;
+	} else if (!VirtualFree(addr, this->sizes[addr], MEM_DECOMMIT)) {
 		trace_debug(L"VirtualFree failed");
-		//TODO? handle error
-		return 0;
+		throw MyErrors::ERROR_VIRTUAL_FREE;
 	}
 
 	auto toRemove = std::find(this->virtualAddrs.begin(), this->virtualAddrs.end(), addr);
-	this->virtualAddrs.erase(toRemove);
-	return 1;
+	if (toRemove != this->virtualAddrs.end()) {
+		this->virtualAddrs.erase(toRemove);
+	}
+	this->sizes.erase(addr);
 }

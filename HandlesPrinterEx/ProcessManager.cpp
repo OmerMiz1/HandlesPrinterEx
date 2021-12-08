@@ -3,40 +3,43 @@
 #include "utils.h"
 #include "consts.h"
 #include "types.h"
+#include "errors.h"
 #include <psapi.h>
 #include <winternl.h>
 
-void ProcessManager::ScanProcesses() {
+std::vector<DWORD> ProcessManager::ScanProcesses() {
 	DWORD aProcesses[1024] = { 0 }, cbNeeded = 0, cProcesses = 0;
 
 	// Get the list of process identifiers.
 	if (!EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded)) {
 		trace_debug(L"ProcessManager::UpdateProcessList: Error EnumProcesses");
+		throw MyErrors::ERROR_ENUM_PROCESSES;
 	}
 
 	// Calculate how many process identifiers were returned.
 	cProcesses = cbNeeded / sizeof(DWORD);
 
-	// Save processes
-	this->processes.clear();
+	auto result = std::vector<DWORD>(aProcesses, &(aProcesses[cProcesses]));
+	return std::move(result);
+	/*this->processes.clear();
 	for (unsigned int i = 0; i < cProcesses; i++) {
 		this->processes.push_back(aProcesses[i]);
-	}
+	}*/
 }
 
-std::vector<DWORD> ProcessManager::GetPidListByName(std::string procName)
-{
-	this->ScanProcesses();
-
-	if (procName.compare("") == 0) {
-		//TODO? handle error
-	}
+std::vector<DWORD> ProcessManager::GetPidListByName(std::string procName) {
+	auto procHandles = ScanProcesses();
 
 	auto result = std::vector<DWORD>();
 	std::string curProcName = "\0";
 
-	for (const DWORD& pid : this->processes) {
-		curProcName = Process::GetName(pid);
+	for (const DWORD& pid : procHandles) {
+		try {
+			curProcName = ProcessManager::GetName(pid);
+		}
+		catch (...) { //TODO make more specific
+			continue;
+		}
 
 		if (procName.compare(curProcName) == 0) {
 			result.push_back(pid);
@@ -49,85 +52,75 @@ std::vector<DWORD> ProcessManager::GetPidListByName(std::string procName)
 std::string ProcessManager::GetProcessCommandLine(DWORD pid) {
 	MY_PUBLIC_PROCESS_BASIC_INFORMATION procInfo{};
 	ULONG guessedSize = sizeof(procInfo);
-	ULONG requiredSize = 0;
+	ULONG requiredSize = 0;  //TODO remove?
 
-	auto procHandle = Process::Open(pid, PROC_ALL_ACCESS_RIGHTS);
-	//if (!IsValidAndOpen(procHandle)) {
-	//	trace_debug(L"open process failed");
-	//	return ERROR_GET_COMMAND_LINE;
-	//}
-
+	auto procHandle = ProcessManager::Open(pid, PROC_ALL_ACCESS_RIGHTS);
 	auto queryProcInfoFunc = (_NtQueryInformationProcess) LoadNtFunction(NT_QUERY_PROC_INFO_NAME);
-	if (queryProcInfoFunc == ERROR_LOAD_NT_FUNC) {
-		//TODO? handle error
-		return ERROR_GET_COMMAND_LINE;
-	}
-
 	auto status = queryProcInfoFunc(procHandle.Get(),
 		ProcessBasicInformation,
 		&procInfo,
 		guessedSize,
-		&requiredSize);
-
-
-	//while (status == STATUS_INFO_LENGTH_MISMATCH) {
-	//	// Update size, realloc info and query again
-	//	guessedSize = requiredSize;
-	//	procInfo = (MY_PPUBLIC_PROCESS_BASIC_INFORMATION) this->memManager.Realloc(procInfo, guessedSize);
-	//	status = queryProcInfoFunc(procHandle.Get(),
-	//		ProcessBasicInformation,
-	//		procInfo,
-	//		guessedSize,
-	//		&requiredSize);
-	//}
-
+		&requiredSize);  //TODO NULL?
 	if (status != STATUS_SUCCESS) {
-		//TODO? handle error
-		trace_debug(L"NtQueryInformationProcess failed" + std::to_wstring(status));
+		trace_debug(L"NtQueryInformationProcess failed with status: " + std::to_wstring(status));
+		throw MyErrors::ERROR_QUERY_PROC_INFO;
 	}
 	
-	// taken from: https://stackoverflow.com/questions/6530565/getting-another-process-command-line-in-windows/13408150#13408150
+	// taken from:
+	// https://stackoverflow.com/questions/6530565/getting-another-process-command-line-in-windows/13408150#13408150
 	auto pebRemote = procInfo.PebBaseAddress;
 	PEB peb{};
-	status = ReadProcessMemory(procHandle.Get(),
-		pebRemote,
-		&peb,
-		sizeof(PEB),
-		NULL);
-	if (!status) {
-		//TODO? handle error
-		trace_debug(L"ReadProcessMemory failed reading peb");
-	}
+	guessedSize = sizeof(PEB);
+	MyReadProcessMemory(procHandle.Get(), pebRemote, &peb, guessedSize,	NULL);
 
 	auto paramsRemote = peb.ProcessParameters;
 	RTL_USER_PROCESS_PARAMETERS params{};
-	status = ReadProcessMemory(procHandle.Get(),
-		paramsRemote,
-		&params,
-		sizeof(RTL_USER_PROCESS_PARAMETERS),
-		NULL);
-	if (!status) {
-		//TODO? handle error
-		trace_debug(L"ReadProcessMemory failed reading rtl params");
-	}
+	guessedSize = sizeof(RTL_USER_PROCESS_PARAMETERS);
+	MyReadProcessMemory(procHandle.Get(), paramsRemote,	&params, guessedSize, NULL);
 
-
+	auto memManager = MemoryManager();
 	auto cmdLineRemote = params.CommandLine.Buffer;
+	auto cmdLine = (PWSTR) memManager.Alloc(guessedSize);
 	guessedSize = params.CommandLine.Length;
-	auto cmdLine = (PWSTR) this->memManager.Alloc(guessedSize);
-	status = ReadProcessMemory(procHandle.Get(),
-		cmdLineRemote,
-		cmdLine, // command line goes here
-		guessedSize,
-		NULL);
-	if (!status) {
-		//TODO? handle error
-		trace_debug(L"ReadProcessMemory failed reading command line");
+	MyReadProcessMemory(procHandle.Get(), cmdLineRemote, cmdLine, guessedSize, NULL);
+
+	return PwstrToStr(cmdLine, guessedSize);
+}
+
+SmartHandle ProcessManager::Open(DWORD pid) {
+	return ProcessManager::Open(pid, PROC_ACCESS_RIGHTS);
+}
+
+SmartHandle ProcessManager::Open(DWORD pid, int accessFlags) {
+	auto handle = OpenProcess(accessFlags, FALSE, pid);
+
+	if (handle == INVALID_HANDLE_VALUE) {
+		trace_debug(L"OpenProcess has failed");
+		throw MyErrors::ERROR_OPEN_PROCESS;
 	}
 
-	auto cmd = std::wstring(cmdLine);
-	auto result = std::string(cmd.begin(), cmd.end());
-	return std::move(result);
+	return SmartHandle(handle);
+}
+
+std::string ProcessManager::GetName(DWORD pid) {
+	// Taken from: 
+	// https://docs.microsoft.com/en-us/windows/win32/psapi/enumerating-all-processes
+	TCHAR nameBuffer[MAX_PATH] = L"\0";
+	HMODULE hMod;
+	DWORD cbNeeded;
+
+	auto procHandle = ProcessManager::Open(pid);
+
+	// Get the process name
+	if (EnumProcessModules(procHandle.Get(), &hMod, sizeof(hMod), &cbNeeded)) {
+		GetModuleBaseName(procHandle.Get(), hMod, nameBuffer, MAX_PATH);
+	}
+	else {
+		trace_debug(L"EnumProcessModules failed");
+		throw MyErrors::ERROR_ENUM_PROC_MODULES;
+	}
+
+	return TcharToStr(nameBuffer);
 }
 
 

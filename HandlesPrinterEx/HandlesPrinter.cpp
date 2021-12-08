@@ -2,55 +2,97 @@
 #include "ProcessManager.h"
 #include "SmartHandle.h"
 #include "types.h"
+#include "consts.h"
 #include <iostream>
 #include <vector>
 #include <sstream>
 
-void HandlesPrinter::Print(DWORD pid, bool multiProcMode) {
-	auto procSysHandles = this->handleMan.GetProcessHandles(pid);
-	PrintHeader(pid, multiProcMode);
+HandlesPrinter::HandlesPrinter() {
+	this->handleMan = new HandlesManager();
+	this->allowedTypes = std::set<std::string>({ "Key",
+		"Section",
+		"File",
+		"Directory",
+		"Thread",
+		"Mutant",
+		"Semaphore",
+		"Desktop",
+		"WindowStation" 
+	});
+}
 
-	for (auto sysHandle : procSysHandles) {
-		auto name = this->handleMan.GetHandleName(sysHandle);
-		auto type = this->handleMan.GetHandleType(sysHandle);
-		auto ptrCount = this->handleMan.GetPointerCount(sysHandle);
-		auto handleCount = this->handleMan.GetHandleCount(sysHandle);
-		std::string cmdLine = "";
-		
-
-		std::ostringstream stream;
-		stream << "  " << std::hex << sysHandle.Handle;
-		stream << ": " << type;
-		stream << " " << name;
-		stream << "\tpointers count: " << std::dec << ptrCount;
-		stream << "\thandles count: " << handleCount;
-
-		std::cout << stream.str() << std::endl;
+HandlesPrinter::~HandlesPrinter() {
+	if (this->handleMan != nullptr) {
+		delete this->handleMan;
 	}
 }
 
-void HandlesPrinter::Print(std::string processName) {
-	auto procMan = ProcessManager();
-	auto pidList = procMan.GetPidListByName(processName);
+void HandlesPrinter::PrintProcHandles(DWORD pid, bool multiProcMode) {
+	PrintHeader(pid, multiProcMode);
+
+	// Print each proc's handles
+	auto procSysHandles = this->handleMan->GetProcessHandles(pid);
+	for (const auto& sysHandle : procSysHandles) {
+		this->PrintHandle(sysHandle);
+	}
+}
+
+void HandlesPrinter::PrintProcHandles(std::string processName) {
+	auto pidList = ProcessManager::GetPidListByName(processName);
 	auto multiProcMode = (pidList.size() > 1); 
 
 	for (auto pid : pidList) {
-		//procMan.GetProcessCommandLine(pid);
-		this->Print(pid, multiProcMode);
+		this->PrintProcHandles(pid, multiProcMode);
 	}
 }
 
 void HandlesPrinter::PrintHeader(DWORD pid, bool multiProcMode) {
-	char header[MAX_PATH] = { "\0" };
-	auto dashes = "-------------------------------------------------";
-	auto format = "%s\tpid:%lu";
-	auto procName = Process::GetName(pid);
+	std::ostringstream stream;
 
-	//TODO? if multiProcMode
+	stream << "-------------------------------------------------" << std::endl;
+	auto procName = ProcessManager::GetName(pid);
+	stream << procName.c_str() << "\tpid: " << pid;
 
-	// TODO change to relevant name (not MAX_PATH)
-	sprintf_s(header, MAX_PATH, format, procName.c_str(), pid);
-	std::cout << dashes << std::endl << header << std::endl;
+	if (multiProcMode) {
+		auto procCmd = ProcessManager::GetProcessCommandLine(pid);
+		stream << "\tcommand line: " << procCmd.c_str();
+	}
+
+	std::cout << stream.str() << std::endl;
 }
 
+void HandlesPrinter::PrintHandle(SYSTEM_HANDLE sysHandle) {
+	auto name = this->handleMan->GetHandleName(sysHandle);
+	auto type = this->handleMan->GetHandleType(sysHandle);
+	auto ptrCount = this->handleMan->GetHandlePointerCount(sysHandle);
+	auto handleCount = this->handleMan->GetHandleCount(sysHandle);
+	
+	// Case handle type not allowed, print unknown type
+	if (!IsAllowedType(type)) {
+		type = UNKNOWN_HANDLE_TYPE;
+	}
+
+	std::ostringstream stream;
+	stream << " " << std::hex << sysHandle.Handle;
+	stream << ": " << type;
+	stream << " " << name;
+	
+	if (ptrCount > 0) {
+		stream << "\tpointers count: " << std::dec << ptrCount;
+	} else {
+		stream << "\t" << UNKNOWN_HANDLE_POINTER_COUNT;
+	}
+	
+	if (handleCount > 0) {
+		stream << "\thandles count: " << handleCount;
+	} else {
+		stream << "\t" << UNKNOWN_HANDLE_COUNT;
+	}
+
+	std::cout << stream.str() << std::endl;
+}
+
+bool HandlesPrinter::IsAllowedType(std::string type) {
+	return (this->allowedTypes.count(type.c_str()) > 0);
+}
 

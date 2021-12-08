@@ -1,16 +1,21 @@
 #pragma once
 
 #include "HandlesManager.h"
-#include <set>
 #include <string>
+#include <set>
 
 class HandlesPrinter
 {
 private:
-	HandlesManager handleMan = HandlesManager();
+	HandlesManager* handleMan;  //TODO handle error (CTOR)
+	std::set<std::string> allowedTypes;
 	static void PrintHeader(DWORD pid, bool multiProcMode);
+	void PrintHandle(SYSTEM_HANDLE sysHandle);
+	bool IsAllowedType(std::string type);
 
 public:
-	void Print(DWORD pid, bool multiProcMode);
-	void Print(std::string processName);
+	HandlesPrinter();
+	~HandlesPrinter();
+	void PrintProcHandles(DWORD pid, bool multiProcMode);
+	void PrintProcHandles(std::string processName);
 };

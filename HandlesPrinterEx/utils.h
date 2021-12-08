@@ -23,4 +23,6 @@ ArgumentType ParseArgType(int argsCount, char** args);
 void MyOutputDebugStringW(std::wstring funcName, int line, std::wstring msg);  //TODO debug
 FARPROC LoadNtFunction(std::string funcName);
 bool IsValidAndOpen(const SmartHandle& handle);
+void MyReadProcessMemory(HANDLE procHandle, LPVOID baseAddr, LPVOID buffer, SIZE_T bufferSize, SIZE_T* requiredSize);
+
 

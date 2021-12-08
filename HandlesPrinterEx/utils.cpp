@@ -1,20 +1,21 @@
 #include "utils.h"
 #include "consts.h"
 #include "errors.h"
-
-bool IsValidProcessNameChar(char c) {
-	//TODO implement
-	//https://stackoverflow.com/questions/43629363/how-to-check-if-a-string-contains-a-char
-	return true;
-}
+#include <set>
 
 bool IsValidProcessName(std::string str) {
+	auto badChars = std::set<char>();
+	auto len = std::strlen(PROC_NAME_BAD_CHARS);
+
+	for (auto i = 0; i < len; i++) {
+		badChars.insert(PROC_NAME_BAD_CHARS[i]);
+	}
+	
 	for (auto c : str) {
-		if (!IsValidProcessNameChar(c)) {
+		if (badChars.count(c) > 0) {
 			return false;
 		}
 	}
-
 	return true;
 }
 
@@ -45,7 +46,7 @@ ArgumentType ParseArgType(int argsCount, char** args) {
 		return ArgumentType::ProcessName;
 	}
 	else {
-		return ArgumentType::InvalidArgument;
+		return ArgumentType::InvalidProcessName;
 	}
 }
 
@@ -84,10 +85,9 @@ std::string PwstrToStr(PWSTR pstr, int Length)
 {
 	if (pstr != nullptr) {
 		auto result = std::string(pstr, &(pstr[Length]));
-		result += "\0";
 		return std::move(result);
 	}
-	return "-";
+	return nullptr;
 
 	/*char* str = new char[Length+1];
 	
@@ -106,4 +106,12 @@ std::string PwstrToStr(PWSTR pstr, int Length)
 
 bool IsValidAndOpen(const SmartHandle & handle) {
 	return (handle.Get() != INVALID_HANDLE_VALUE && handle.Get() != NULL);  // TODO why double check? 
+}
+
+void MyReadProcessMemory(HANDLE procHandle, LPVOID baseAddr, LPVOID buffer, SIZE_T bufferSize, SIZE_T* requiredSize) {
+	auto status = ReadProcessMemory(procHandle, baseAddr, buffer, bufferSize, requiredSize);
+	if (!status) {
+		trace_debug(L"ReadProcessMemory failed reading peb");
+		throw MyErrors::ERROR_READ_PROC_MEM;
+	}
 }

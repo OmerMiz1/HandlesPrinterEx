@@ -7,7 +7,7 @@ typedef enum class ArgumentType {
 	PID = 0,
 	ProcessName,
 	InvalidArgumentCount,
-	InvalidArgument
+	InvalidProcessName
 };
 
 /*
