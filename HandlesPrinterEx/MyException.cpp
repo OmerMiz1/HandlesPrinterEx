@@ -1,70 +1,83 @@
 #include "MyException.h"
 #include "utils.h"
-#include <string>
+#include <sstream>
 
-MyException::MyException(MyErrors errorType) {
+MyException::MyException(MyError errorType) {
 	this->errType = errorType;
 }
 
-MyException::MyException(MyErrors errorType, NTSTATUS status) {
+MyException::MyException(MyError errorType, NTSTATUS status) {
 	this->errType = errorType;
 	this->status = status;
 }
 
+MyException::MyException(std::wstring funcName, int lineNum, MyError errorType) {
+	this->errType = errorType;
+	this->funcName = funcName;
+	this->lineNum = lineNum;
+}
+
+MyException::MyException(std::wstring funcName, int lineNum, MyError errorType, NTSTATUS status) {
+	this->errType = errorType;
+	this->funcName = funcName;
+	this->lineNum = lineNum;
+	this->status = status;
+}
+
 const char* MyException::what() const throw() {
-	std::wstring msg;
+	std::wstringstream stream;
 
 	switch (this->errType) {
 		case ERROR_OPEN_PROCESS: {
-			msg = L"OpenProcess";
+			stream << L"OpenProcess";
 			break;
 		}
 		case ERROR_ENUM_PROCESSES: {
-			msg = L"EnumProcesses";
+			stream << L"EnumProcesses";
 			break;
 		}
 		case ERROR_ENUM_PROC_MODULES: {
-			msg = L"EnumProcessModules";
+			stream << L"EnumProcessModules";
 			break;
 		}
 		case ERROR_GET_MODULE_HANDLE: {
-			msg = L"GetModuleHandle";
+			stream << L"GetModuleHandle";
 			break;
 		}
 		case ERROR_GET_PROC_ADDR: {
-			msg = L"GetProcAddress";
+			stream << L"GetProcAddress";
 			break;
 		}
 		case ERROR_QUERY_SYS_INFO: {
-			msg = L"NyQuerySystemInformation";
+			stream << L"NyQuerySystemInformation";
 			break;
 		}
 		case ERROR_QUERY_PROC_INFO: {
-			msg = L"NtQueryInformationProcess";
+			stream << L"NtQueryInformationProcess";
 			break;
 		}
 		case ERROR_QUERY_OBJ: {
-			msg = L"NtQueryObject";
+			stream << L"NtQueryObject";
 			break;
 		}
 		case ERROR_DUPLICATE_HANDLE: {
-			msg = L"DuplicateHandle";
+			stream << L"DuplicateHandle";
 			break;
 		}
 		case ERROR_READ_PROC_MEM: {
-			msg = L"ReadProcessMemory";
+			stream << L"ReadProcessMemory";
 			break;
 		}
 		case ERROR_VIRTUAL_ALLOC: {
-			msg = L"VirtualAlloc";
+			stream << L"VirtualAlloc";
 			break;
 		}
 		case ERROR_VIRTUAL_FREE_NULLPTR: {
-			msg = L"VirtualFree received nullptr so it";
+			stream << L"VirtualFree received nullptr so it";
 			break;
 		}
 		case ERROR_VIRTUAL_FREE: {
-			msg = L"VirtualFree";
+			stream << L"VirtualFree";
 			break;
 		}
 		default: {
@@ -73,16 +86,22 @@ const char* MyException::what() const throw() {
 		}
 	}
 
-	msg += L" failed!";
+	stream << L" failed!";
 
 	if (status != 0) {
-		msg += L" Status code: " + std::to_wstring(this->status);
+		stream << L" status code: " << this->status << L" ";
+	} else if (GetLastError() != 0) {
+		stream << L" error code: " << GetLastError() << L" ";
 	}
 
-	else if (GetLastError() != 0) {
-		msg += L" Error code: " + std::to_wstring(GetLastError());
-	}
+	stream << L"( " << this->funcName;
+	stream << L" line: " << this->lineNum << L").\t";
 	
-	trace_debug(msg);
-	return std::move(std::string(msg.begin(), msg.end()).c_str());
+	// Print to debug
+	auto wmsg = stream.str();
+	trace_debug(wmsg.c_str());
+
+	// Convert to char* and return
+	auto msg = std::string(wmsg.begin(), wmsg.end());
+	return std::move(msg.c_str());
 }

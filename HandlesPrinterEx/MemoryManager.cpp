@@ -19,14 +19,16 @@ MemoryManager::~MemoryManager() {
 }
 
 LPVOID MemoryManager::Alloc(SIZE_T bytesToAllocate) {
-	auto resultAddr = VirtualAlloc(NULL, bytesToAllocate, MEM_COMMIT, MEM_ALLOC_PROTECTION);
+	auto resultAddr = VirtualAlloc(NULL, bytesToAllocate, MEM_COMMIT, PAGE_READWRITE);
 
 	if (resultAddr == nullptr) {
-		throw MyException(ERROR_VIRTUAL_ALLOC);
+		throw_exception(ERROR_VIRTUAL_ALLOC);
 	}
 
+	// Store addr and size for later free
 	this->virtualAddrs.push_back(resultAddr);
-	this->sizes[resultAddr] = bytesToAllocate; //TODO remove
+	this->sizes[resultAddr] = bytesToAllocate;
+
 	return resultAddr;
 }
 
@@ -37,16 +39,17 @@ LPVOID MemoryManager::Realloc(LPVOID addr, SIZE_T bytesToAllocate) {
 
 void MemoryManager::Free(LPVOID addr) {
 	if (addr == nullptr) {
-		throw MyException(ERROR_VIRTUAL_FREE_NULLPTR);
+		throw_exception(ERROR_VIRTUAL_FREE_NULLPTR);
 	}
 
 	if (!VirtualFree(addr, this->sizes[addr], MEM_DECOMMIT)) {
-		throw MyException(ERROR_VIRTUAL_FREE);
+		throw_exception(ERROR_VIRTUAL_FREE);
 	}
 
+	// Remove from addrs to free
 	auto toRemove = std::find(this->virtualAddrs.begin(), this->virtualAddrs.end(), addr);
 	if (toRemove != this->virtualAddrs.end()) {
 		this->virtualAddrs.erase(toRemove);
+		this->sizes.erase(addr);
 	}
-	this->sizes.erase(addr);
 }

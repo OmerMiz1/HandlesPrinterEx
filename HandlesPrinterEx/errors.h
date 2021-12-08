@@ -1,6 +1,6 @@
 #pragma once
 
-enum MyErrors {
+enum MyError {
 	ERROR_OPEN_PROCESS=1,
 	ERROR_ENUM_PROCESSES,
 	ERROR_ENUM_PROC_MODULES,

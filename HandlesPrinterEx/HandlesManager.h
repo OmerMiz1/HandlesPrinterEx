@@ -1,38 +1,83 @@
 #pragma once
 
-#include "MyException.h"
 #include "MemoryManager.h"
 #include "SmartHandle.h"
 #include "types.h"
 #include <vector>
 #include <string>
-#include <windows.h>
 
 class HandlesManager
 {
 private:
 	MemoryManager* memManager;
-	std::vector<SYSTEM_HANDLE> handles;  //TODO Free on after scan? free at the end?
+	std::vector<SYSTEM_HANDLE> handles;
 
-	void ScanSystemHandles() throw(MyException);
-	template<typename T> T GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType) throw(MyException);  //TODO
+	/**
+	* Scans entire system handles and stores in handles member.
+	* 
+	* May throw MyException (see errors.h and MyException class).
+	*/
+	void ScanSystemHandles() throw();
+	/**
+	* Generic function that calls NtQueryObject function.
+	* Being used to get a handle's:
+	*	Name
+	*	Type
+	*	Pointers count
+	*	Handles count
+	* 
+	* params:
+	* handle: the system handle to query about.
+	* attrType: type of query (see types.h)
+	*/
+	template<typename T> T GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType) throw();
 
 public:
 	HandlesManager();
 	~HandlesManager();
 
-	std::vector<SYSTEM_HANDLE> GetProcessHandles(DWORD pid) throw(MyException);
-	std::string GetHandleName(SYSTEM_HANDLE handle) throw(MyException);
-	std::string GetHandleType(SYSTEM_HANDLE handle) throw(MyException);
-	ULONG GetHandlePointerCount(SYSTEM_HANDLE handle) throw(MyException);
-	ULONG GetHandleCount(SYSTEM_HANDLE handle) throw(MyException);
+	/**
+	* Returns a list of handles related to a process id.
+	* 
+	* May throw MyException (see MyException.h)
+	*/
+	std::vector<SYSTEM_HANDLE> GetProcessHandles(DWORD pid) throw();
+	/**
+	* Returns a handle's name using GetHandleInfo<T>.
+	*
+	* May throw MyException (see MyException.h)
+	*/
+	std::string GetHandleName(SYSTEM_HANDLE handle) throw();
+	/**
+	* Returns a handle's type using GetHandleInfo<T>.
+	*
+	* May throw MyException (see MyException.h)
+	*/
+	std::string GetHandleType(SYSTEM_HANDLE handle) throw();
+	/**
+	* Returns a handle's pointer count using GetHandleInfo<T>.
+	*
+	* May throw MyException (see MyException.h)
+	*/
+	ULONG GetHandlePointerCount(SYSTEM_HANDLE handle) throw();
+	/**
+	* Returns a handle count using GetHandleInfo<T>.
+	*
+	* May throw MyException (see MyException.h)
+	*/
+	ULONG GetHandleCount(SYSTEM_HANDLE handle) throw();
 
-	static SmartHandle Duplicate(const SmartHandle& procHandle, HANDLE handleToCopy) throw(MyException);
+	/**
+	* Duplicates a handle using DuplicateHandle (winapi).
+	* See MSDN for remarks.
+	*/
+	static SmartHandle Duplicate(const SmartHandle& procHandle, HANDLE handleToCopy) throw();
 	static void EnableDebugPrivilege(); //TODO? remove \ mark private
 };
 
-template POBJECT_NAME_INFORMATION HandlesManager::GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType);
-template POBJECT_TYPE_INFORMATION HandlesManager::GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType);
-template MY_PPUBLIC_OBJECT_BASIC_INFORMATION HandlesManager::GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType);
+// Template declarations for GetHandleInfo<T>
+template POBJECT_NAME_INFORMATION HandlesManager::GetHandleInfo(SYSTEM_HANDLE, ObjectInformationClass);
+template POBJECT_TYPE_INFORMATION HandlesManager::GetHandleInfo(SYSTEM_HANDLE, ObjectInformationClass);
+template MY_PPUBLIC_OBJECT_BASIC_INFORMATION HandlesManager::GetHandleInfo(SYSTEM_HANDLE, ObjectInformationClass);
 
 

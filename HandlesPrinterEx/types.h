@@ -3,20 +3,28 @@
 #include <windows.h>
 #include <winternl.h>
 
+// FILE NOTE:
+/**
+* The following structs are taken from the web\MSDN.
+* They're being used (most of them) in nt function calls.
+*/
 
-typedef enum class ArgumentType {
+/**
+* For parsing arguments.
+*/
+typedef enum class _ArgumentType {
 	PID = 0,
 	ProcessName,
 	InvalidArgumentCount,
 	InvalidProcessName
-};
+} ArgumentType;
 
-/*
-Info for enum comes from both:
-https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ob/obquery/class.htm
-https://forums.codeguru.com/showthread.php?423112-RESOLVED-W2K-How-to-get-process-handles-details
+/**
+* Info for enum comes from both:
+* https://www.geoffchappell.com/studies/windows/km/ntoskrnl/api/ob/obquery/class.htm
+* https://forums.codeguru.com/showthread.php?423112-RESOLVED-W2K-How-to-get-process-handles-details
 */
-typedef enum class ObjectInformationClass : ULONG {
+typedef enum class _ObjectInformationClass : ULONG {
 	ObjectBasicInformation = 0,
 	ObjectNameInformation,
 	ObjectTypeInformation,
@@ -25,15 +33,16 @@ typedef enum class ObjectInformationClass : ULONG {
 	ObjectSessionInformation,
 	ObjectSessionObjectInformation,
 	MaxObjectInfoClass
-};
+} ObjectInformationClass;
 
-//TODO remove unecessary types
-// Taken from: https://github.com/SinaKarvandi/Process-Magics/blob/master/EnumAllHandles/EnumAllHandles/EnumAllHandles.cpp
+/**
+* Taken from:
+* https://github.com/SinaKarvandi/Process-Magics/blob/master/EnumAllHandles/EnumAllHandles/EnumAllHandles.cpp
+*/
 typedef _SYSTEM_INFORMATION_CLASS SYSTEM_INFORMATION_CLASS;
 typedef _UNICODE_STRING UNICODE_STRING, * PUNICODE_STRING;
 
-typedef struct _OBJECT_NAME_INFORMATION
-{
+typedef struct _OBJECT_NAME_INFORMATION {
 	UNICODE_STRING Name;
 
 } OBJECT_NAME_INFORMATION, * POBJECT_NAME_INFORMATION;
@@ -43,38 +52,7 @@ typedef struct _OBJECT_TYPE_INFORMATION {
 	ULONG Reserved[22];    // reserved for internal use
 } OBJECT_TYPE_INFORMATION, * POBJECT_TYPE_INFORMATION;
 
-typedef NTSTATUS(NTAPI* _NtQuerySystemInformation)(
-	ULONG SystemInformationClass,
-	PVOID SystemInformation,
-	ULONG SystemInformationLength,
-	PULONG ReturnLength
-	);
 
-typedef NTSTATUS(NTAPI* _NtDuplicateObject)(
-	HANDLE SourceProcessHandle,
-	HANDLE SourceHandle,
-	HANDLE TargetProcessHandle,
-	PHANDLE TargetHandle,
-	ACCESS_MASK DesiredAccess,
-	ULONG Attributes,
-	ULONG Options
-	);
-
-typedef NTSTATUS(NTAPI* _NtQueryObject)(
-	HANDLE ObjectHandle,
-	ULONG ObjectInformationClass,
-	PVOID ObjectInformation,
-	ULONG ObjectInformationLength,
-	PULONG ReturnLength
-	);
-
-typedef NTSTATUS (NTAPI* _NtQueryInformationProcess)(  //TODO make sure NTAPI* works
-	HANDLE ProcessHandle,
-	PROCESSINFOCLASS ProcessInformationClass,
-	PVOID ProcessInformation,
-	ULONG ProcessInformationLength,
-	PULONG ReturnLength
-);
 
 typedef struct _SYSTEM_HANDLE
 {
@@ -92,44 +70,6 @@ typedef struct _SYSTEM_HANDLE_INFORMATION
 	SYSTEM_HANDLE Handles[1];
 } SYSTEM_HANDLE_INFORMATION, * PSYSTEM_HANDLE_INFORMATION;
 
-typedef enum _POOL_TYPE
-{
-	NonPagedPool,
-	PagedPool,
-	NonPagedPoolMustSucceed,
-	DontUseThisType,
-	NonPagedPoolCacheAligned,
-	PagedPoolCacheAligned,
-	NonPagedPoolCacheAlignedMustS
-} POOL_TYPE, * PPOOL_TYPE;
-
-//typedef struct _OBJECT_TYPE_INFORMATION
-//{
-//	UNICODE_STRING Name;
-//	ULONG TotalNumberOfObjects;
-//	ULONG TotalNumberOfHandles;
-//	ULONG TotalPagedPoolUsage;
-//	ULONG TotalNonPagedPoolUsage;
-//	ULONG TotalNamePoolUsage;
-//	ULONG TotalHandleTableUsage;
-//	ULONG HighWaterNumberOfObjects;
-//	ULONG HighWaterNumberOfHandles;
-//	ULONG HighWaterPagedPoolUsage;
-//	ULONG HighWaterNonPagedPoolUsage;
-//	ULONG HighWaterNamePoolUsage;
-//	ULONG HighWaterHandleTableUsage;
-//	ULONG InvalidAttributes;
-//	GENERIC_MAPPING GenericMapping;
-//	ULONG ValidAccess;
-//	BOOLEAN SecurityRequired;
-//	BOOLEAN MaintainHandleCount;
-//	USHORT MaintainTypeList;
-//	POOL_TYPE PoolType;
-//	ULONG PagedPoolUsage;
-//	ULONG NonPagedPoolUsage;
-//} OBJECT_TYPE_INFORMATION, * POBJECT_TYPE_INFORMATION;
-
-//TODO change to _OBJECT_BASIC_INFORMATION
 typedef struct MY_PUBLIC_OBJECT_BASIC_INFORMATION {
 	ULONG Attributes;
 	ACCESS_MASK GrantedAccess;
@@ -146,3 +86,27 @@ typedef struct _MY_PUBLIC_PROCESS_BASIC_INFORMATION {
 	ULONG_PTR UniqueProcessId;
 	ULONG_PTR InheritedFromUniqueProcessId;
 } MY_PUBLIC_PROCESS_BASIC_INFORMATION, *MY_PPUBLIC_PROCESS_BASIC_INFORMATION;
+
+// NtFunction definitions //
+typedef NTSTATUS(NTAPI* _NtQuerySystemInformation)(
+	ULONG SystemInformationClass,
+	PVOID SystemInformation,
+	ULONG SystemInformationLength,
+	PULONG ReturnLength
+	);
+
+typedef NTSTATUS(NTAPI* _NtQueryObject)(
+	HANDLE ObjectHandle,
+	ULONG ObjectInformationClass,
+	PVOID ObjectInformation,
+	ULONG ObjectInformationLength,
+	PULONG ReturnLength
+	);
+
+typedef NTSTATUS (NTAPI* _NtQueryInformationProcess)(  //TODO make sure NTAPI* works
+	HANDLE ProcessHandle,
+	PROCESSINFOCLASS ProcessInformationClass,
+	PVOID ProcessInformation,
+	ULONG ProcessInformationLength,
+	PULONG ReturnLength
+);

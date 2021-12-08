@@ -5,7 +5,7 @@ SmartHandle::SmartHandle(HANDLE handle) {
 }
 
 SmartHandle::~SmartHandle() {
-	if (this->handle != nullptr && this->handle != NULL) {
+	if (this != nullptr && this->handle != NULL) {
 		CloseHandle(this->handle);
 	}
 }

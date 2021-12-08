@@ -10,11 +10,12 @@
 
 std::vector<DWORD> ProcessManager::ScanProcesses()
 {
+	// Taken from MSDN
 	DWORD aProcesses[1024] = { 0 }, cbNeeded = 0, cProcesses = 0;
 
 	// Get the list of process identifiers.
 	if (!EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded)) {
-		throw MyException(ERROR_ENUM_PROCESSES);
+		throw_exception(ERROR_ENUM_PROCESSES);
 	}
 
 	// Calculate how many process identifiers were returned.
@@ -51,7 +52,7 @@ std::string ProcessManager::GetProcessCommandLine(DWORD pid) {
 	ULONG guessedSize = sizeof(procInfo);
 	ULONG requiredSize = 0;  //TODO remove?
 
-	auto procHandle = ProcessManager::Open(pid, PROC_ALL_ACCESS_RIGHTS);
+	auto procHandle = ProcessManager::Open(pid, PROCESS_ALL_ACCESS);
 	auto queryProcInfoFunc = (_NtQueryInformationProcess) LoadNtFunction(NT_QUERY_PROC_INFO_NAME);
 	auto status = queryProcInfoFunc(procHandle.Get(),
 		ProcessBasicInformation,
@@ -60,7 +61,7 @@ std::string ProcessManager::GetProcessCommandLine(DWORD pid) {
 		&requiredSize);  //TODO NULL?
 	if (status != STATUS_SUCCESS) {
 		SetLastError(status);
-		throw MyException(ERROR_QUERY_PROC_INFO, status);
+		throw_exception_with_status(ERROR_QUERY_PROC_INFO, status);
 	}
 	
 	// taken from:
@@ -68,18 +69,27 @@ std::string ProcessManager::GetProcessCommandLine(DWORD pid) {
 	auto pebRemote = procInfo.PebBaseAddress;
 	PEB peb{};
 	guessedSize = sizeof(PEB);
-	MyReadProcessMemory(procHandle.Get(), pebRemote, &peb, guessedSize,	NULL);
+	status = ReadProcessMemory(procHandle.Get(), pebRemote, &peb, guessedSize, NULL);
+	if (status == 0) {
+		throw_exception(ERROR_READ_PROC_MEM);
+	}
 
 	auto paramsRemote = peb.ProcessParameters;
 	RTL_USER_PROCESS_PARAMETERS params{};
 	guessedSize = sizeof(RTL_USER_PROCESS_PARAMETERS);
-	MyReadProcessMemory(procHandle.Get(), paramsRemote,	&params, guessedSize, NULL);
+	status = ReadProcessMemory(procHandle.Get(), paramsRemote, &params, guessedSize, NULL);
+	if (status == 0) {
+		throw_exception(ERROR_READ_PROC_MEM);
+	}
 
 	auto memManager = MemoryManager();
 	auto cmdLineRemote = params.CommandLine.Buffer;
 	auto cmdLine = (PWSTR) memManager.Alloc(guessedSize);
 	guessedSize = params.CommandLine.Length;
-	MyReadProcessMemory(procHandle.Get(), cmdLineRemote, cmdLine, guessedSize, NULL);
+	status = ReadProcessMemory(procHandle.Get(), cmdLineRemote, cmdLine, guessedSize, NULL);
+	if (status == 0) {
+		throw_exception(ERROR_READ_PROC_MEM);
+	}
 
 	return ToString(cmdLine, guessedSize);
 }
@@ -92,7 +102,7 @@ SmartHandle ProcessManager::Open(DWORD pid, int accessFlags) {
 	auto handle = OpenProcess(accessFlags, FALSE, pid);
 
 	if (handle == INVALID_HANDLE_VALUE) {
-		throw MyException(ERROR_OPEN_PROCESS);
+		throw_exception(ERROR_OPEN_PROCESS);
 	}
 
 	return SmartHandle(handle);
@@ -111,7 +121,7 @@ std::string ProcessManager::GetName(DWORD pid) {
 	if (EnumProcessModules(procHandle.Get(), &hMod, sizeof(hMod), &cbNeeded)) {
 		GetModuleBaseName(procHandle.Get(), hMod, nameBuffer, MAX_PATH);
 	} else {
-		throw MyException(ERROR_ENUM_PROC_MODULES);
+		throw_exception(ERROR_ENUM_PROC_MODULES);
 	}
 
 	return ToString(nameBuffer);
