@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MyException.h"
 #include "MemoryManager.h"
 #include "SmartHandle.h"
 #include "types.h"
@@ -13,20 +14,20 @@ private:
 	MemoryManager* memManager;
 	std::vector<SYSTEM_HANDLE> handles;  //TODO Free on after scan? free at the end?
 
-	void ScanSystemHandles();
-	template<typename T> T GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType) throw(...);  //TODO
+	void ScanSystemHandles() throw(MyException);
+	template<typename T> T GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType) throw(MyException);  //TODO
 
 public:
 	HandlesManager();
 	~HandlesManager();
 
-	std::vector<SYSTEM_HANDLE> GetProcessHandles(DWORD pid);
-	std::string GetHandleName(SYSTEM_HANDLE handle);
-	std::string GetHandleType(SYSTEM_HANDLE handle);
-	ULONG GetHandlePointerCount(SYSTEM_HANDLE handle);
-	ULONG GetHandleCount(SYSTEM_HANDLE handle);
+	std::vector<SYSTEM_HANDLE> GetProcessHandles(DWORD pid) throw(MyException);
+	std::string GetHandleName(SYSTEM_HANDLE handle) throw(MyException);
+	std::string GetHandleType(SYSTEM_HANDLE handle) throw(MyException);
+	ULONG GetHandlePointerCount(SYSTEM_HANDLE handle) throw(MyException);
+	ULONG GetHandleCount(SYSTEM_HANDLE handle) throw(MyException);
 
-	static SmartHandle DuplicateHandle(const SmartHandle& srcProcHandle, HANDLE srcHandle);
+	static SmartHandle Duplicate(const SmartHandle& procHandle, HANDLE handleToCopy) throw(MyException);
 	static void EnableDebugPrivilege(); //TODO? remove \ mark private
 };
 

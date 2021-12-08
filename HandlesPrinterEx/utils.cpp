@@ -3,6 +3,7 @@
 #include "errors.h"
 #include <set>
 
+// Arguments\String parsing //
 bool IsValidProcessName(std::string str) {
 	auto badChars = std::set<char>();
 	auto len = std::strlen(PROC_NAME_BAD_CHARS);
@@ -19,18 +20,39 @@ bool IsValidProcessName(std::string str) {
 	return true;
 }
 
-bool IsValidPid(std::string str) {
+bool IsNumber(std::string str) {
+	bool skipFirst = false;
+	
+	if (str.front() == '-') {
+		skipFirst = true;
+	}
+
 	for (auto c : str) {
+		if (skipFirst) {
+			skipFirst = false;
+			continue;
+		}
 		if (!std::isdigit(c)) {
 			return false;
 		}
 	}
 
-	//TODO? check overflow
-	// possible test:
-	// 1. converting to unsigned long long 
-	// 2. converting back to string
-	// 3. comparing origin and converted
+	return true;
+}
+
+bool IsValidPid(std::string str) {
+	if (str.front() == '-' || !IsNumber(str)) {
+		return false;
+	}
+
+	// Check for overflow
+	auto val = std::stoul(str.c_str());
+	auto valStr = std::to_string(val);
+
+	if (valStr.compare(str) != 0) {
+		return false;
+	}
+	
 	return true;
 }
 
@@ -50,38 +72,16 @@ ArgumentType ParseArgType(int argsCount, char** args) {
 	}
 }
 
-void MyOutputDebugStringW(std::wstring funcName, int line, std::wstring msg) {
-	wchar_t msgBuffer[1024] = L"\0";
-	int len = swprintf_s(msgBuffer, 1024, TRACE_DEBUG_FORMAT, GetLastError(), msg.c_str(), funcName.c_str(), line);
 
-	OutputDebugStringW(msgBuffer); // TODO check len?
-}
-
-std::string TcharToStr(TCHAR* tchar) {
+// String converts //
+std::string ToString(TCHAR* tchar) {
 	// Taken from:
 	// https://stackoverflow.com/questions/6006319/converting-tchar-to-string-in-c
 	std::wstring wstr(tchar);
 	return std::string(wstr.begin(), wstr.end());  //TODO? use move
 }
 
-FARPROC LoadNtFunction(std::string funcName) {
-	auto modHandle = GetModuleHandleA(NTDLL_NAME);
-	if (modHandle == nullptr) {
-		trace_debug(L"GetModuleHandleA failed");
-		throw MyErrors::ERROR_LOAD_NT_FUNC;
-	}
-
-	auto result = GetProcAddress(modHandle, funcName.c_str());
-	if (result == nullptr) {
-		trace_debug(L"GetProcAddress failed");
-		throw MyErrors::ERROR_LOAD_NT_FUNC;
-	}
-
-	return result;
-}
-
-// Convert Unicode to Printable constant char [String]
-std::string PwstrToStr(PWSTR pstr, int Length)
+std::string ToString(PWSTR pstr, int Length)
 {
 	if (pstr != nullptr) {
 		auto result = std::string(pstr, &(pstr[Length]));
@@ -104,14 +104,36 @@ std::string PwstrToStr(PWSTR pstr, int Length)
 	return result;*/
 }
 
+
+// General //
+void MyOutputDebugStringW(std::wstring funcName, int line, std::wstring msg) {
+	wchar_t msgBuffer[1024] = L"\0";
+	int len = swprintf_s(msgBuffer, 1024, TRACE_DEBUG_FORMAT, GetLastError(), msg.c_str(), funcName.c_str(), line);
+
+	OutputDebugStringW(msgBuffer); // TODO check len?
+}
+
 bool IsValidAndOpen(const SmartHandle & handle) {
 	return (handle.Get() != INVALID_HANDLE_VALUE && handle.Get() != NULL);  // TODO why double check? 
 }
 
+FARPROC LoadNtFunction(std::string funcName) {
+	auto modHandle = GetModuleHandleA(NTDLL_NAME);
+	if (modHandle == nullptr) {
+		throw MyException(ERROR_GET_MODULE_HANDLE);
+	}
+
+	auto result = GetProcAddress(modHandle, funcName.c_str());
+	if (result == nullptr) {
+		throw MyException(ERROR_GET_PROC_ADDR);
+	}
+
+	return result;
+}
+
 void MyReadProcessMemory(HANDLE procHandle, LPVOID baseAddr, LPVOID buffer, SIZE_T bufferSize, SIZE_T* requiredSize) {
 	auto status = ReadProcessMemory(procHandle, baseAddr, buffer, bufferSize, requiredSize);
-	if (!status) {
-		trace_debug(L"ReadProcessMemory failed reading peb");
-		throw MyErrors::ERROR_READ_PROC_MEM;
+	if (status != STATUS_SUCCESS) {
+		throw MyException(ERROR_READ_PROC_MEM);
 	}
 }

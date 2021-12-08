@@ -1,3 +1,4 @@
+#include "MyException.h"
 #include "ProcessManager.h"
 #include "HandlesManager.h"
 #include "utils.h"
@@ -7,13 +8,13 @@
 #include <psapi.h>
 #include <winternl.h>
 
-std::vector<DWORD> ProcessManager::ScanProcesses() {
+std::vector<DWORD> ProcessManager::ScanProcesses()
+{
 	DWORD aProcesses[1024] = { 0 }, cbNeeded = 0, cProcesses = 0;
 
 	// Get the list of process identifiers.
 	if (!EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded)) {
-		trace_debug(L"ProcessManager::UpdateProcessList: Error EnumProcesses");
-		throw MyErrors::ERROR_ENUM_PROCESSES;
+		throw MyException(ERROR_ENUM_PROCESSES);
 	}
 
 	// Calculate how many process identifiers were returned.
@@ -21,10 +22,6 @@ std::vector<DWORD> ProcessManager::ScanProcesses() {
 
 	auto result = std::vector<DWORD>(aProcesses, &(aProcesses[cProcesses]));
 	return std::move(result);
-	/*this->processes.clear();
-	for (unsigned int i = 0; i < cProcesses; i++) {
-		this->processes.push_back(aProcesses[i]);
-	}*/
 }
 
 std::vector<DWORD> ProcessManager::GetPidListByName(std::string procName) {
@@ -62,8 +59,8 @@ std::string ProcessManager::GetProcessCommandLine(DWORD pid) {
 		guessedSize,
 		&requiredSize);  //TODO NULL?
 	if (status != STATUS_SUCCESS) {
-		trace_debug(L"NtQueryInformationProcess failed with status: " + std::to_wstring(status));
-		throw MyErrors::ERROR_QUERY_PROC_INFO;
+		SetLastError(status);
+		throw MyException(ERROR_QUERY_PROC_INFO, status);
 	}
 	
 	// taken from:
@@ -84,7 +81,7 @@ std::string ProcessManager::GetProcessCommandLine(DWORD pid) {
 	guessedSize = params.CommandLine.Length;
 	MyReadProcessMemory(procHandle.Get(), cmdLineRemote, cmdLine, guessedSize, NULL);
 
-	return PwstrToStr(cmdLine, guessedSize);
+	return ToString(cmdLine, guessedSize);
 }
 
 SmartHandle ProcessManager::Open(DWORD pid) {
@@ -95,8 +92,7 @@ SmartHandle ProcessManager::Open(DWORD pid, int accessFlags) {
 	auto handle = OpenProcess(accessFlags, FALSE, pid);
 
 	if (handle == INVALID_HANDLE_VALUE) {
-		trace_debug(L"OpenProcess has failed");
-		throw MyErrors::ERROR_OPEN_PROCESS;
+		throw MyException(ERROR_OPEN_PROCESS);
 	}
 
 	return SmartHandle(handle);
@@ -114,13 +110,11 @@ std::string ProcessManager::GetName(DWORD pid) {
 	// Get the process name
 	if (EnumProcessModules(procHandle.Get(), &hMod, sizeof(hMod), &cbNeeded)) {
 		GetModuleBaseName(procHandle.Get(), hMod, nameBuffer, MAX_PATH);
-	}
-	else {
-		trace_debug(L"EnumProcessModules failed");
-		throw MyErrors::ERROR_ENUM_PROC_MODULES;
+	} else {
+		throw MyException(ERROR_ENUM_PROC_MODULES);
 	}
 
-	return TcharToStr(nameBuffer);
+	return ToString(nameBuffer);
 }
 
 

@@ -144,6 +144,7 @@
     <ClInclude Include="errors.h" />
     <ClInclude Include="HandlesManager.h" />
     <ClInclude Include="HandlesPrinter.h" />
+    <ClInclude Include="MyException.h" />
     <ClInclude Include="MemoryManager.h" />
     <ClInclude Include="ProcessManager.h" />
     <ClInclude Include="SmartHandle.h" />
@@ -153,6 +154,7 @@
   <ItemGroup>
     <ClCompile Include="HandlesManager.cpp" />
     <ClCompile Include="HandlesPrinter.cpp" />
+    <ClCompile Include="MyException.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MemoryManager.cpp" />
     <ClCompile Include="ProcessManager.cpp" />

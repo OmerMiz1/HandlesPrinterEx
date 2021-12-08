@@ -37,8 +37,7 @@ void HandlesManager::ScanSystemHandles() {
 	}
 
 	if (status != STATUS_SUCCESS) {
-		trace_debug(L"bad status code: " + std::to_wstring(status));
-		throw MyErrors::ERROR_QUERY_SYS_INFO;
+		throw MyException(ERROR_QUERY_SYS_INFO, status);
 	}
 
 	this->handles.clear();
@@ -60,11 +59,11 @@ std::vector<SYSTEM_HANDLE> HandlesManager::GetProcessHandles(DWORD pid) {
 	return std::move(result); //TODO? possible mess up with handles?
 }
 
-SmartHandle HandlesManager::DuplicateHandle(const SmartHandle& srcProcHandle, HANDLE srcHandle) {
+SmartHandle HandlesManager::Duplicate(const SmartHandle& procHandle, HANDLE handleToCopy) {
 	HANDLE handleBuffer = NULL;
 
-	auto status = ::DuplicateHandle(srcProcHandle.Get(),
-		srcHandle,
+	auto status = DuplicateHandle(procHandle.Get(),
+		handleToCopy,
 		GetCurrentProcess(),
 		&handleBuffer,
 		PROCESS_ALL_ACCESS,
@@ -72,8 +71,7 @@ SmartHandle HandlesManager::DuplicateHandle(const SmartHandle& srcProcHandle, HA
 		DUPLICATE_SAME_ACCESS);
 
 	if (status == STATUS_INVALID_HANDLE || handleBuffer == HANDLE_CLOSED_VALUE) {
-		trace_debug(L"DuplicateHandle failed");
-		throw MyErrors::ERROR_DUPLICATE_HANDLE;
+		throw MyException(ERROR_DUPLICATE_HANDLE);
 	} else if (status == 0x1) {  //TODO? remove? what does it mean? (they had it for the case procHandle is for current process)
 		Sleep(10);
 	}
@@ -81,31 +79,29 @@ SmartHandle HandlesManager::DuplicateHandle(const SmartHandle& srcProcHandle, HA
 	return SmartHandle(handleBuffer);
 }
 
-//TODO? force T to be ptr type
 template<typename T>
 T HandlesManager::GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType) {
 	// guessedSize: some info classes requires FIXED size, more info at:
 	// https://stackoverflow.com/questions/46108382/ntquerysysteminformation-returns-24-error-bad-length
-	T objectInfo = nullptr; // TODO? init with {}
-	ULONG guessedSize = sizeof(*objectInfo);
+	T objectInfo = nullptr;
+	ULONG size = sizeof(*objectInfo);
 	ULONG requiredSize = 0;
 
 	auto procHandle = ProcessManager::Open(handle.ProcessId, PROCESS_DUP_HANDLE);
-	auto dupHandle = HandlesManager::DuplicateHandle(procHandle, (HANDLE) handle.Handle);
-	objectInfo = (T) this->memManager->Alloc(guessedSize);
+	auto dupHandle = HandlesManager::Duplicate(procHandle, (HANDLE) handle.Handle);
+	objectInfo = (T) this->memManager->Alloc(size);
 	auto queryObjectFunc = (_NtQueryObject)LoadNtFunction(NT_QUERY_OBJECT_NAME);
 
-	NTSTATUS status = queryObjectFunc(dupHandle.Get(), (ULONG) attrType, objectInfo, guessedSize, &requiredSize);
+	NTSTATUS status = queryObjectFunc(dupHandle.Get(), (ULONG) attrType, objectInfo, size, &requiredSize);
 				
-	while (status != STATUS_SUCCESS/*status == STATUS_INFO_LENGTH_MISMATCH || status == STATUS_BUFFER_OVERFLOW*/) {
-		guessedSize = requiredSize;
-		objectInfo = (T) this->memManager->Realloc(objectInfo, guessedSize);
-		status = queryObjectFunc(dupHandle.Get(), (ULONG) attrType, objectInfo, guessedSize, &requiredSize);
+	while (status != STATUS_SUCCESS) {
+		size = requiredSize;
+		objectInfo = (T) this->memManager->Realloc(objectInfo, size);
+		status = queryObjectFunc(dupHandle.Get(), (ULONG) attrType, objectInfo, size, &requiredSize);
 	}
 
 	if (status != STATUS_SUCCESS) {
-		trace_debug(L"bad status code: " + std::to_wstring(status));
-		throw MyErrors::ERROR_QUERY_OBJ;
+		throw MyException(ERROR_QUERY_OBJ, status);
 	}
 	return objectInfo;
 }
@@ -120,9 +116,10 @@ std::string HandlesManager::GetHandleName(SYSTEM_HANDLE handle) {
 			return UNKNOWN_HANDLE_NAME;
 		}
 
-		return PwstrToStr(objectInfo->Name.Buffer, objectInfo->Name.Length);
+		return ToString(objectInfo->Name.Buffer, objectInfo->Name.Length);
 	}
-	catch (...) { //TODO make specific
+	catch (MyException e) { //TODO make specific
+		e.what();
 		return UNKNOWN_HANDLE_NAME;
 	}
 }
@@ -137,9 +134,10 @@ std::string HandlesManager::GetHandleType(SYSTEM_HANDLE handle) {
 			return UNKNOWN_HANDLE_TYPE;
 		}
 
-		return PwstrToStr(objectInfo->TypeName.Buffer, objectInfo->TypeName.Length);
+		return ToString(objectInfo->TypeName.Buffer, objectInfo->TypeName.Length);
 	}
-	catch (...) { //TODO make specific
+	catch (MyException e) { //TODO make specific
+		e.what();
 		return UNKNOWN_HANDLE_TYPE;
 	}
 }
@@ -151,7 +149,8 @@ ULONG HandlesManager::GetHandlePointerCount(SYSTEM_HANDLE handle) {
 		auto objectInfo = this->GetHandleInfo<MY_PPUBLIC_OBJECT_BASIC_INFORMATION>(handle, queryAttrType);
 		return objectInfo->PointerCount;
 	}
-	catch (...) { //TODO make specific
+	catch (MyException e) { //TODO make specific
+		e.what();
 		return UNKNOWN_HANDLE_PTR_COUNT;
 	}
 }
@@ -163,7 +162,8 @@ ULONG HandlesManager::GetHandleCount(SYSTEM_HANDLE handle) {
 		auto objectInfo = this->GetHandleInfo<MY_PPUBLIC_OBJECT_BASIC_INFORMATION>(handle, queryAttrType);
 		return objectInfo->HandleCount;
 	}
-	catch (...) { //TODO make more specific
+	catch (MyException e) { //TODO make more specific
+		e.what();
 		return UNKNOWN_HANDLES_COUNT;
 	}
 

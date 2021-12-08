@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <winternl.h>
 
+
 typedef enum class ArgumentType {
 	PID = 0,
 	ProcessName,
