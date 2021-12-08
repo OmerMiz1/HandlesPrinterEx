@@ -19,7 +19,7 @@ private:
 	/**
 	* Only called from DTOR.
 	*/
-	void Free(LPVOID addr) throw();
+	void Free(LPVOID addr) throw(MyException);
 
 public:
 	~MemoryManager();
@@ -30,11 +30,11 @@ public:
 	* 
 	* May throw MyException (see errors.h and MyException.h)
 	*/
-	LPVOID Alloc(SIZE_T size) throw();
+	LPVOID Alloc(SIZE_T size) throw(MyException);
 	/**
 	* A convinience function, reallocates virtual memory
 	* by calling VirtualFree and VirtualAlloc.
 	*/
-	LPVOID Realloc(LPVOID addr, SIZE_T bytesToAllocate) throw();
+	LPVOID Realloc(LPVOID addr, SIZE_T bytesToAllocate) throw(MyException);
 };
 

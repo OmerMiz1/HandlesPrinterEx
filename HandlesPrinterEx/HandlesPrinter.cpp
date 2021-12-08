@@ -107,8 +107,8 @@ void HandlesPrinter::PrintHandle(SYSTEM_HANDLE sysHandle) const {
 
 	std::ostringstream stream;
 	stream << " " << std::hex << sysHandle.Handle;
-	stream << ": " << type;
-	stream << " " << name;
+	stream << ": " << type.c_str();
+	stream << " " << name.c_str();
 	
 	if (ptrCount > INVALID_HANDLE_PTR_COUNT) {
 		stream << "\tpointers count: " << std::dec << ptrCount;

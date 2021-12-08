@@ -35,7 +35,8 @@ std::vector<DWORD> ProcessManager::GetPidListByName(std::string procName) {
 		try {
 			curProcName = ProcessManager::GetName(pid);
 		}
-		catch (...) { //TODO make more specific
+		catch (MyException e) {
+			e.what();
 			continue;
 		}
 
@@ -116,14 +117,14 @@ std::string ProcessManager::GetName(DWORD pid) {
 	DWORD cbNeeded;
 
 	auto procHandle = ProcessManager::Open(pid);
-
 	// Get the process name
-	if (EnumProcessModules(procHandle.Get(), &hMod, sizeof(hMod), &cbNeeded)) {
-		GetModuleBaseName(procHandle.Get(), hMod, nameBuffer, MAX_PATH);
-	} else {
-		throw_exception(ERROR_ENUM_PROC_MODULES);
+	auto status = EnumProcessModules(procHandle.Get(), &hMod, sizeof(hMod), &cbNeeded);
+	if(status == 0) {
+		throw MyException(ERROR_ENUM_PROC_MODULES);
+		//throw_exception(ERROR_ENUM_PROC_MODULES);
 	}
 
+	GetModuleBaseName(procHandle.Get(), hMod, nameBuffer, MAX_PATH);
 	return ToString(nameBuffer);
 }
 

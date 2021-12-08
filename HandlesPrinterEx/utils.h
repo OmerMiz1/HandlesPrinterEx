@@ -8,11 +8,11 @@
 
 // taken from:
 // https://stackoverflow.com/questions/29049686/is-there-a-better-way-to-pass-formatted-output-to-outputdebugstring
-#ifdef  _DEBUG
+//#ifdef  _DEBUG
 #define trace_debug(wmsg) OutputDebugStringW(wmsg)
-#else
-#define trace_debug
-#endif //  _DEBUG
+//#else
+//#define trace_debug
+//#endif //  _DEBUG
 
 /**
 * Made macros for easy exception throw with function name
@@ -63,4 +63,4 @@ ArgumentType ParseArgType(int argsCount, char** args);
 * Function may throw exceptions incase of winapi function
 * faiulures (see MyErrors in "types.h" for more info).
 **/
-FARPROC LoadNtFunction(std::string funcName) throw();
+FARPROC LoadNtFunction(std::string funcName) throw(MyException);

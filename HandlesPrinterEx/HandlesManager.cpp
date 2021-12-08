@@ -9,7 +9,6 @@
 HandlesManager::HandlesManager() {
 	this->memManager = new MemoryManager();
 	this->ScanSystemHandles();
-	//this->EnableDebugPrivilege(); //TODO remove
 }
 
 HandlesManager::~HandlesManager() {
@@ -175,20 +174,4 @@ ULONG HandlesManager::GetHandleCount(SYSTEM_HANDLE handle) {
 	}
 
 
-}
-
-//TODO remove
-void HandlesManager::EnableDebugPrivilege() {
-	HANDLE hToken;
-	TOKEN_PRIVILEGES tokenPriv{};
-	LUID luidDebug;
-	if (OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken) != FALSE) {
-		if (LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luidDebug) != FALSE)
-		{
-			tokenPriv.PrivilegeCount = 1;
-			tokenPriv.Privileges[0].Luid = luidDebug;
-			tokenPriv.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-			AdjustTokenPrivileges(hToken, FALSE, &tokenPriv, sizeof(tokenPriv), NULL, NULL);
-		}
-	}
 }

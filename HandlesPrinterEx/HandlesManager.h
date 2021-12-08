@@ -17,7 +17,7 @@ private:
 	* 
 	* May throw MyException (see errors.h and MyException class).
 	*/
-	void ScanSystemHandles() throw();
+	void ScanSystemHandles() throw(MyException);
 	/**
 	* Generic function that calls NtQueryObject function.
 	* Being used to get a handle's:
@@ -30,7 +30,7 @@ private:
 	* handle: the system handle to query about.
 	* attrType: type of query (see types.h)
 	*/
-	template<typename T> T GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType) throw();
+	template<typename T> T GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass attrType) throw(MyException);
 
 public:
 	HandlesManager();
@@ -41,38 +41,37 @@ public:
 	* 
 	* May throw MyException (see MyException.h)
 	*/
-	std::vector<SYSTEM_HANDLE> GetProcessHandles(DWORD pid) throw();
+	std::vector<SYSTEM_HANDLE> GetProcessHandles(DWORD pid) throw(MyException);
 	/**
 	* Returns a handle's name using GetHandleInfo<T>.
 	*
 	* May throw MyException (see MyException.h)
 	*/
-	std::string GetHandleName(SYSTEM_HANDLE handle) throw();
+	std::string GetHandleName(SYSTEM_HANDLE handle) throw(MyException);
 	/**
 	* Returns a handle's type using GetHandleInfo<T>.
 	*
 	* May throw MyException (see MyException.h)
 	*/
-	std::string GetHandleType(SYSTEM_HANDLE handle) throw();
+	std::string GetHandleType(SYSTEM_HANDLE handle) throw(MyException);
 	/**
 	* Returns a handle's pointer count using GetHandleInfo<T>.
 	*
 	* May throw MyException (see MyException.h)
 	*/
-	ULONG GetHandlePointerCount(SYSTEM_HANDLE handle) throw();
+	ULONG GetHandlePointerCount(SYSTEM_HANDLE handle) throw(MyException);
 	/**
 	* Returns a handle count using GetHandleInfo<T>.
 	*
 	* May throw MyException (see MyException.h)
 	*/
-	ULONG GetHandleCount(SYSTEM_HANDLE handle) throw();
+	ULONG GetHandleCount(SYSTEM_HANDLE handle) throw(MyException);
 
 	/**
 	* Duplicates a handle using DuplicateHandle (winapi).
 	* See MSDN for remarks.
 	*/
-	static SmartHandle Duplicate(const SmartHandle& procHandle, HANDLE handleToCopy) throw();
-	static void EnableDebugPrivilege(); //TODO? remove \ mark private
+	static SmartHandle Duplicate(const SmartHandle& procHandle, HANDLE handleToCopy) throw(MyException);
 };
 
 // Template declarations for GetHandleInfo<T>

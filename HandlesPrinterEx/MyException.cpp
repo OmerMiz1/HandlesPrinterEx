@@ -24,7 +24,7 @@ MyException::MyException(std::wstring funcName, int lineNum, MyError errorType, 
 	this->status = status;
 }
 
-const char* MyException::what() const throw() {
+const char* MyException::what() const {
 	std::wstringstream stream;
 
 	switch (this->errType) {
