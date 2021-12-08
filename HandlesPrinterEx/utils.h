@@ -6,8 +6,15 @@
 #include <string>
 #include <windows.h>
 
-// taken from:
-// https://stackoverflow.com/questions/29049686/is-there-a-better-way-to-pass-formatted-output-to-outputdebugstring
+// NOTE:
+/** 
+* taken from :
+* https://stackoverflow.com/questions/29049686/is-there-a-better-way-to-pass-formatted-output-to-outputdebugstring
+* 
+* Uncomment bellow lines (untill endif including) to print only 
+* when in debug mode.
+*/ 
+
 //#ifdef  _DEBUG
 #define trace_debug(wmsg) OutputDebugStringW(wmsg)
 //#else
