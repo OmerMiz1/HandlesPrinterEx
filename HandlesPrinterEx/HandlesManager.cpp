@@ -100,12 +100,12 @@ T HandlesManager::GetHandleInfo(SYSTEM_HANDLE handle, ObjectInformationClass att
 	NTSTATUS status = queryObjectFunc(dupHandle.Get(), (ULONG) attrType, objectInfo, size, &requiredSize);
 	
 	// Reallocate memory as required specifies and re execute query untill success.
-	while (status != STATUS_SUCCESS) {
+	while (status == STATUS_INFO_LENGTH_MISMATCH || status == STATUS_BUFFER_OVERFLOW) {
 		size = requiredSize;
 		objectInfo = (T) this->memManager->Realloc(objectInfo, size);
 		status = queryObjectFunc(dupHandle.Get(), (ULONG) attrType, objectInfo, size, &requiredSize);
 	}
-
+	
 	if (status != STATUS_SUCCESS) {
 		throw_exception_with_status(ERROR_QUERY_OBJ, status);
 	}
